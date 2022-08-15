@@ -52,6 +52,9 @@ import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.EC2;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ECS;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ENV;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.K8S_SERVICE_ACCOUNT;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.AWS_REGION;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.CREDENTIAL_PROVIDERS;
+
 
 /**
  * Unit test class for AWSSecretManagerClient.
@@ -59,8 +62,6 @@ import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.K8S_SERVI
 @PrepareForTest({LogFactory.class, AWSVaultUtils.class, ApacheHttpClient.class, SecretsManagerClient.class})
 public class AWSSecretManagerClientTest extends PowerMockTestCase {
 
-    private static final String AWS_REGION = "awsregion";
-    private static final String CREDENTIAL_PROVIDERS = "credentialProviders";
     private Properties properties;
     private SecretsManagerClientBuilder secretsManagerClientBuilder;
     private SecretsManagerClient secretManagerClientObj;

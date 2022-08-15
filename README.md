@@ -73,7 +73,7 @@ added singularly or comma separate to form an authentication chain in the specif
 the default credential provider chain will be used. This is further explained in Step 3.
 
 `<ENCRYPTION_ENABLED>` - Specify either true or false. If set to true, the secrets stored in the AWS Secrets Manager (
-except the root password) has to be encrypted beforehand using the cipher tool. Please not that if you are using the
+except the root password) has to be encrypted beforehand using the cipher tool. Please note that if you are using the
 novel method for configuration, this property has to be set to false. Encryption is only supported for legacy method.
 
 ### Step 3: Setting up AWS Credentials for authentication
