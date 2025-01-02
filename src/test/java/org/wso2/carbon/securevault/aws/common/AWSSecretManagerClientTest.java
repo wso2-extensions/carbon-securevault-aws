@@ -47,13 +47,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.AWS_REGION;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.CLI;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.CREDENTIAL_PROVIDERS;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.EC2;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ECS;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ENV;
-import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.K8S_SERVICE_ACCOUNT;
-import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.AWS_REGION;
-import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.CREDENTIAL_PROVIDERS;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.K8S_SERVICE_ACCOUNT; 
 
 
 /**
