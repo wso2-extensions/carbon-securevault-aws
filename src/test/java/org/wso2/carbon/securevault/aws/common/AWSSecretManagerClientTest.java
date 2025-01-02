@@ -17,6 +17,7 @@
  */
 
 package org.wso2.carbon.securevault.aws.common;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.powermock.core.classloader.annotations.PrepareForTest;
