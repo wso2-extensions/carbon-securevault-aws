@@ -18,13 +18,19 @@
 
 package org.wso2.carbon.securevault.aws.secret.handler;
 
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import org.wso2.carbon.securevault.aws.common.AWSSecretManagerClient;
 import org.wso2.carbon.securevault.aws.exception.AWSVaultRuntimeException;
+import org.wso2.carbon.securevault.aws.secret.repository.AWSSecretRepository;
 import org.wso2.securevault.secret.SingleSecretCallback;
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -34,6 +40,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -51,6 +63,11 @@ public class AWSSecretCallbackHandlerTest {
     private static final String TEST_CONFIG_DIR = TEMP_DIR + File.separator + "repository" + File.separator
             + "conf" + File.separator + "security";
     private static final String TEST_CONFIG_FILE = TEST_CONFIG_DIR + File.separator + "secret-conf.properties";
+    private static final String BASE_CONFIG = "keystore.identity.store.alias=keystoreAlias\n"
+            + "secretRepositories=vault\n"
+            + "secretRepositories.vault.properties.awsregion=us-east-1\n"
+            + "secretRepositories.vault.provider="
+            + "org.wso2.carbon.securevault.aws.secret.repository.AWSSecretRepositoryProvider\n";
 
     private AWSSecretCallbackHandler callbackHandler;
 
@@ -115,89 +132,20 @@ public class AWSSecretCallbackHandlerTest {
         }
     }
 
+    @DataProvider(name = "missingConfigProvider")
+    public Object[][] missingConfigProvider() {
+        return new Object[][]{
+                {"no config file", null, ".*Error loading configurations.*"},
+                {"no keystore alias", "# Empty config\n",
+                        ".*keystore.identity.store.alias property has not been set.*"},
+                {"empty keystore alias", "keystore.identity.store.alias=\n",
+                        ".*keystore.identity.store.alias property has not been set.*"}
+        };
+    }
+
     @Test(description = "Test that AWSSecretCallbackHandler can be instantiated")
     public void testInstantiation() {
         assertNotNull(callbackHandler);
-    }
-
-    @Test(description = "Test handleSingleSecretCallback throws exception when config file doesn't exist",
-            expectedExceptions = AWSVaultRuntimeException.class,
-            expectedExceptionsMessageRegExp = ".*Error loading configurations.*")
-    public void testHandleSingleSecretCallbackNoConfigFile() {
-        SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
-        callbackHandler.handleSingleSecretCallback(callback);
-    }
-
-    @Test(description = "Test handleSingleSecretCallback throws exception when keystore alias not set",
-            expectedExceptions = AWSVaultRuntimeException.class,
-            expectedExceptionsMessageRegExp = ".*keystore.identity.store.alias property has not been set.*")
-    public void testHandleSingleSecretCallbackNoKeystoreAlias() throws IOException {
-        createTestConfigFile("# Empty config\n");
-        SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
-        callbackHandler.handleSingleSecretCallback(callback);
-    }
-
-    @Test(description = "Test handleSingleSecretCallback throws exception when keystore alias is empty",
-            expectedExceptions = AWSVaultRuntimeException.class,
-            expectedExceptionsMessageRegExp = ".*keystore.identity.store.alias property has not been set.*")
-    public void testHandleSingleSecretCallbackEmptyKeystoreAlias() throws IOException {
-        createTestConfigFile("keystore.identity.store.alias=\n");
-        SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
-        callbackHandler.handleSingleSecretCallback(callback);
-    }
-
-    @Test(description = "Test handleSingleSecretCallback works when private key alias not set")
-    public void testHandleSingleSecretCallbackNoPrivateKeyAlias() throws IOException {
-        System.setProperty("key.password", "true");
-        createTestConfigFile("keystore.identity.store.alias=testAlias\n"
-                + "secretRepositories=vault\n"
-                + "secretRepositories.vault.properties.awsregion=us-east-1\n"
-                + "secretRepositories.vault.properties.credentialProviders=ENV\n");
-
-        SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_KEY_PASSWORD_ALIAS);
-
-        try {
-            callbackHandler.handleSingleSecretCallback(callback);
-            assertNotNull(callback.getSecret(), "Secret should not be null");
-        } catch (Exception e) {
-            // Expected - AWS connection will fail without valid credentials
-        }
-    }
-
-    @Test(description = "Test handleSingleSecretCallbackEmptyPrivateKeyAlias works when private key alias is empty")
-    public void testHandleSingleSecretCallbackEmptyPrivateKeyAlias() throws IOException {
-        System.setProperty("key.password", "true");
-        createTestConfigFile("keystore.identity.store.alias=testAlias\n"
-                + "keystore.identity.key.alias=\n"
-                + "secretRepositories=vault\n"
-                + "secretRepositories.vault.properties.awsregion=us-east-1\n"
-                + "secretRepositories.vault.properties.credentialProviders=ENV\n");
-
-        SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_KEY_PASSWORD_ALIAS);
-
-        try {
-            callbackHandler.handleSingleSecretCallback(callback);
-            assertNotNull(callback.getSecret(), "Secret should not be null");
-        } catch (Exception e) {
-            // Expected - AWS connection will fail without valid credentials
-        }
-    }
-
-    @Test(description = "Test system property key.password defaults to false")
-    public void testKeyPasswordSystemPropertyDefault() {
-        assertNull(System.getProperty("key.password"), "key.password should be null by default");
-    }
-
-    @Test(description = "Test system property key.password can be set to true")
-    public void testKeyPasswordSystemPropertySetTrue() {
-        System.setProperty("key.password", "true");
-        assertEquals(System.getProperty("key.password"), "true");
-    }
-
-    @Test(description = "Test system property key.password can be set to false")
-    public void testKeyPasswordSystemPropertySetFalse() {
-        System.setProperty("key.password", "false");
-        assertEquals(System.getProperty("key.password"), "false");
     }
 
     @Test(description = "Test that callback handler extends AbstractSecretCallbackHandler")
@@ -205,14 +153,60 @@ public class AWSSecretCallbackHandlerTest {
         assertTrue(callbackHandler instanceof org.wso2.securevault.secret.AbstractSecretCallbackHandler);
     }
 
-    @Test(description = "Test config file can be created and read")
-    public void testConfigFileCreationAndReading() throws IOException {
-        String testContent = "test.property=testValue\n";
-        createTestConfigFile(testContent);
+    @Test(dataProvider = "missingConfigProvider",
+            description = "Test missing or invalid configuration",
+            expectedExceptions = AWSVaultRuntimeException.class)
+    public void testMissingConfiguration(String testCase, String configContent,
+                                          String expectedMessage) throws IOException {
+        if (configContent != null) {
+            createTestConfigFile(configContent);
+        }
+        SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
+        callbackHandler.handleSingleSecretCallback(callback);
+    }
 
-        Path configFile = Paths.get(TEST_CONFIG_FILE);
-        assertTrue(Files.exists(configFile), "Config file should exist");
-        assertTrue(new String(Files.readAllBytes(configFile)).contains("test.property=testValue"));
+    @DataProvider(name = "privateKeyAliasProvider")
+    public Object[][] privateKeyAliasProvider() {
+        return new Object[][]{
+                {"not set", "secretRepositories.vault.properties.credentialProviders=ENV\n",
+                        IDENTITY_KEY_PASSWORD_ALIAS},
+                {"empty", "keystore.identity.key.alias=\n"
+                        + "secretRepositories.vault.properties.credentialProviders=ENV\n",
+                        IDENTITY_KEY_PASSWORD_ALIAS}
+        };
+    }
+
+    @Test(dataProvider = "privateKeyAliasProvider",
+            description = "Test private key alias scenarios")
+    public void testPrivateKeyAliasScenarios(String scenario, String extraConfig,
+                                              String callbackId) throws IOException {
+        System.setProperty("key.password", "true");
+        createTestConfigFile(BASE_CONFIG + extraConfig);
+
+        SingleSecretCallback callback = new SingleSecretCallback(callbackId);
+        try {
+            callbackHandler.handleSingleSecretCallback(callback);
+            assertNotNull(callback.getSecret(), "Secret should not be null");
+        } catch (Exception e) {
+            // Expected - AWS connection will fail without valid credentials
+        }
+    }
+
+    @DataProvider(name = "keyPasswordPropertyProvider")
+    public Object[][] keyPasswordPropertyProvider() {
+        return new Object[][]{
+                {"default null", null, null},
+                {"set to true", "true", "true"},
+                {"set to false", "false", "false"}
+        };
+    }
+
+    @Test(dataProvider = "keyPasswordPropertyProvider", description = "Test system property key.password")
+    public void testKeyPasswordSystemProperty(String testCase, String setValue, String expectedValue) {
+        if (setValue != null) {
+            System.setProperty("key.password", setValue);
+        }
+        assertEquals(System.getProperty("key.password"), expectedValue);
     }
 
     @Test(description = "Test multiple callback IDs are supported")
@@ -222,6 +216,21 @@ public class AWSSecretCallbackHandlerTest {
 
         assertEquals(callback1.getId(), IDENTITY_STORE_PASSWORD_ALIAS);
         assertEquals(callback2.getId(), IDENTITY_KEY_PASSWORD_ALIAS);
+    }
+
+    @DataProvider(name = "pathVerificationProvider")
+    public Object[][] pathVerificationProvider() {
+        return new Object[][]{
+                {"config directory", TEST_CONFIG_DIR, new String[]{"repository", "conf", "security"}},
+                {"config file", TEST_CONFIG_FILE, new String[]{"secret-conf.properties"}}
+        };
+    }
+
+    @Test(dataProvider = "pathVerificationProvider", description = "Test path construction")
+    public void testPathConstruction(String pathType, String path, String[] expectedParts) {
+        for (String part : expectedParts) {
+            assertTrue(path.contains(part));
+        }
     }
 
     @Test(description = "Test static fields are reset between tests")
@@ -236,15 +245,174 @@ public class AWSSecretCallbackHandlerTest {
         assertEquals(System.getProperty("carbon.home"), TEMP_DIR);
     }
 
-    @Test(description = "Test configuration directory path is constructed correctly")
-    public void testConfigDirectoryPath() {
-        assertTrue(TEST_CONFIG_DIR.contains("repository"));
-        assertTrue(TEST_CONFIG_DIR.contains("conf"));
-        assertTrue(TEST_CONFIG_DIR.contains("security"));
+    @Test(description = "Test config file can be created and read")
+    public void testConfigFileCreationAndReading() throws IOException {
+        String testContent = "test.property=testValue\n";
+        createTestConfigFile(testContent);
+
+        Path configFile = Paths.get(TEST_CONFIG_FILE);
+        assertTrue(Files.exists(configFile), "Config file should exist");
+        assertTrue(new String(Files.readAllBytes(configFile)).contains("test.property=testValue"));
     }
 
-    @Test(description = "Test configuration file path is constructed correctly")
-    public void testConfigFilePath() {
-        assertTrue(TEST_CONFIG_FILE.endsWith("secret-conf.properties"));
+    @DataProvider(name = "passwordRetrievalProvider")
+    public Object[][] passwordRetrievalProvider() {
+        return new Object[][]{
+                {"same password", false, "keystoreAlias", null, "testPassword123", null,
+                        IDENTITY_STORE_PASSWORD_ALIAS, "testPassword123"},
+                {"different passwords", true, "keystoreAlias", "privateKeyAlias",
+                        "keystorePass123", "privateKeyPass456",
+                        IDENTITY_STORE_PASSWORD_ALIAS, "keystorePass123"}
+        };
+    }
+
+    @Test(dataProvider = "passwordRetrievalProvider",
+            description = "Test successful password retrieval")
+    public void testSuccessfulPasswordRetrieval(String scenario, boolean setKeyPassword,
+                                                  String keystoreAlias, String privateKeyAlias,
+                                                  String keystorePass, String privateKeyPass,
+                                                  String callbackId, String expectedPassword)
+            throws IOException {
+        if (setKeyPassword) {
+            System.setProperty("key.password", "true");
+        }
+
+        String config = "keystore.identity.store.alias=" + keystoreAlias + "\n";
+        if (privateKeyAlias != null) {
+            config += "keystore.identity.key.alias=" + privateKeyAlias + "\n";
+        }
+        config += BASE_CONFIG.substring(BASE_CONFIG.indexOf("secretRepositories"));
+
+        createTestConfigFile(config);
+
+        SecretsManagerClient mockSecretsClient = mock(SecretsManagerClient.class);
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedConstruction<AWSSecretRepository> mockedRepo = mockConstruction(AWSSecretRepository.class,
+                     (mock, context) -> {
+                         when(mock.getSecret(keystoreAlias)).thenReturn(keystorePass);
+                         if (privateKeyAlias != null) {
+                             when(mock.getSecret(privateKeyAlias)).thenReturn(privateKeyPass);
+                         }
+                     })) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(any())).thenReturn(mockSecretsClient);
+
+            SingleSecretCallback callback = new SingleSecretCallback(callbackId);
+            callbackHandler.handleSingleSecretCallback(callback);
+
+            assertNotNull(callback.getSecret(), "Secret should not be null");
+            assertEquals(new String(callback.getSecret()), expectedPassword);
+        }
+    }
+
+    @Test(description = "Test that cached passwords are reused on subsequent calls")
+    public void testPasswordCaching() throws Exception {
+        createTestConfigFile(BASE_CONFIG);
+
+        SecretsManagerClient mockSecretsClient = mock(SecretsManagerClient.class);
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedConstruction<AWSSecretRepository> mockedRepo = mockConstruction(AWSSecretRepository.class,
+                     (mock, context) -> {
+                         when(mock.getSecret(anyString())).thenReturn("cachedPassword");
+                     })) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(any())).thenReturn(mockSecretsClient);
+
+            SingleSecretCallback callback1 = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
+            callbackHandler.handleSingleSecretCallback(callback1);
+            assertEquals(new String(callback1.getSecret()), "cachedPassword");
+
+            SingleSecretCallback callback2 = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
+            callbackHandler.handleSingleSecretCallback(callback2);
+            assertEquals(new String(callback2.getSecret()), "cachedPassword");
+        }
+    }
+
+    @DataProvider(name = "emptyPasswordProvider")
+    public Object[][] emptyPasswordProvider() {
+        return new Object[][]{
+                {"keystore password empty", false, "", null, IDENTITY_STORE_PASSWORD_ALIAS},
+                {"private key password empty", true, "keystorePass123", "", IDENTITY_KEY_PASSWORD_ALIAS}
+        };
+    }
+
+    @Test(dataProvider = "emptyPasswordProvider", description = "Test exception when password retrieval returns empty",
+            expectedExceptions = AWSVaultRuntimeException.class,
+            expectedExceptionsMessageRegExp = ".*Error in retrieving.*")
+    public void testExceptionWhenPasswordEmpty(String scenario, boolean setKeyPassword, String keystorePass,
+                                                 String privateKeyPass, String callbackId) throws IOException {
+        if (setKeyPassword) {
+            System.setProperty("key.password", "true");
+        }
+
+        String config = BASE_CONFIG;
+        if (setKeyPassword) {
+            config += "keystore.identity.key.alias=privateKeyAlias\n";
+        }
+
+        createTestConfigFile(config);
+
+        SecretsManagerClient mockSecretsClient = mock(SecretsManagerClient.class);
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedConstruction<AWSSecretRepository> mockedRepo = mockConstruction(AWSSecretRepository.class,
+                     (mock, context) -> {
+                         when(mock.getSecret("keystoreAlias")).thenReturn(keystorePass);
+                         when(mock.getSecret("privateKeyAlias")).thenReturn(privateKeyPass);
+                     })) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(any())).thenReturn(mockSecretsClient);
+
+            SingleSecretCallback callback = new SingleSecretCallback(callbackId);
+            callbackHandler.handleSingleSecretCallback(callback);
+        }
+    }
+
+    @Test(description = "Test exception when private key alias not set but key.password is true",
+            expectedExceptions = AWSVaultRuntimeException.class,
+            expectedExceptionsMessageRegExp = ".*keystore.identity.key.alias property has not been set.*")
+    public void testExceptionWhenPrivateKeyAliasNotSetButRequired() throws IOException {
+        System.setProperty("key.password", "true");
+        createTestConfigFile(BASE_CONFIG);
+
+        SecretsManagerClient mockSecretsClient = mock(SecretsManagerClient.class);
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedConstruction<AWSSecretRepository> mockedRepo = mockConstruction(AWSSecretRepository.class,
+                     (mock, context) -> {
+                         when(mock.getSecret("keystoreAlias")).thenReturn("keystorePass123");
+                     })) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(any())).thenReturn(mockSecretsClient);
+
+            SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_KEY_PASSWORD_ALIAS);
+            callbackHandler.handleSingleSecretCallback(callback);
+        }
+    }
+
+    @Test(description = "Test setting secret for identity.key.password ID")
+    public void testSetSecretForPrivateKeyPasswordId() throws IOException {
+        System.setProperty("key.password", "true");
+        createTestConfigFile(BASE_CONFIG + "keystore.identity.key.alias=privateKeyAlias\n");
+
+        SecretsManagerClient mockSecretsClient = mock(SecretsManagerClient.class);
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedConstruction<AWSSecretRepository> mockedRepo = mockConstruction(AWSSecretRepository.class,
+                     (mock, context) -> {
+                         when(mock.getSecret("keystoreAlias")).thenReturn("keystorePass");
+                         when(mock.getSecret("privateKeyAlias")).thenReturn("privateKeyPass");
+                     })) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(any())).thenReturn(mockSecretsClient);
+
+            SingleSecretCallback callback = new SingleSecretCallback(IDENTITY_KEY_PASSWORD_ALIAS);
+            callbackHandler.handleSingleSecretCallback(callback);
+
+            assertNotNull(callback.getSecret());
+            assertTrue(new String(callback.getSecret()).length() > 0);
+        }
     }
 }
