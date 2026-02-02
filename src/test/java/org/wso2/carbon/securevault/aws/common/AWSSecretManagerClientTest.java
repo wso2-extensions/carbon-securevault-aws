@@ -132,7 +132,7 @@ public class AWSSecretManagerClientTest {
                     + CREDENTIAL_PROVIDERS, credentialProvider);
         }
 
-        SecretsManagerClient client = AWSSecretManagerClient.getInstance(properties);
+        SecretsManagerClient client = (SecretsManagerClient) AWSSecretManagerClient.getInstance(properties);
         assertNotNull(client, "SecretsManagerClient should be created for " + description);
     }
 
@@ -145,8 +145,8 @@ public class AWSSecretManagerClientTest {
         properties.setProperty("secretRepositories.vault.properties." + AWS_REGION, "us-west-2");
         properties.setProperty("secretRepositories.vault.properties." + CREDENTIAL_PROVIDERS, ENV);
 
-        SecretsManagerClient client1 = AWSSecretManagerClient.getInstance(properties);
-        SecretsManagerClient client2 = AWSSecretManagerClient.getInstance(properties);
+        SecretsManagerClient client1 = (SecretsManagerClient) AWSSecretManagerClient.getInstance(properties);
+        SecretsManagerClient client2 = (SecretsManagerClient) AWSSecretManagerClient.getInstance(properties);
 
         assertSame(client1, client2, "getInstance should return the same instance (singleton)");
     }
@@ -211,7 +211,7 @@ public class AWSSecretManagerClientTest {
         properties.setProperty("secretRepositories.vault.properties." + AWS_REGION, region);
         properties.setProperty("secretRepositories.vault.properties." + CREDENTIAL_PROVIDERS, credentialProvider);
 
-        SecretsManagerClient client = AWSSecretManagerClient.getInstance(properties);
+        SecretsManagerClient client = (SecretsManagerClient) AWSSecretManagerClient.getInstance(properties);
 
         assertNotNull(client, "SecretsManagerClient should be created for " + credentialProvider);
     }
@@ -228,7 +228,7 @@ public class AWSSecretManagerClientTest {
         properties.setProperty("secretRepositories.vault.properties." + AWS_REGION, region);
         properties.setProperty("secretRepositories.vault.properties." + CREDENTIAL_PROVIDERS, credentialProvider);
 
-        SecretsManagerClient client = AWSSecretManagerClient.getInstance(properties);
+        SecretsManagerClient client = (SecretsManagerClient) AWSSecretManagerClient.getInstance(properties);
 
         assertNotNull(client, "SecretsManagerClient should be created for " + description);
     }
@@ -244,7 +244,7 @@ public class AWSSecretManagerClientTest {
                 ENV + "," + EC2 + "," + CLI);
 
         // Test client creation and type
-        SecretsManagerClient client = AWSSecretManagerClient.getInstance(properties);
+        SecretsManagerClient client = (SecretsManagerClient) AWSSecretManagerClient.getInstance(properties);
         assertNotNull(client);
         assertTrue(client.serviceName().toLowerCase().contains("secret"),
                 "Client should be a Secrets Manager client");
