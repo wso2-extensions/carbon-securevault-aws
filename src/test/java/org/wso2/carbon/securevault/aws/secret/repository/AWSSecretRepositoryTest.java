@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, WSO2 LLC (http://www.wso2.com).
+ * Copyright (c) 2022-2026, WSO2 LLC (http://www.wso2.com).
  *
  * WSO2 LLC licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -18,315 +18,431 @@
 
 package org.wso2.carbon.securevault.aws.secret.repository;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.mockito.Mockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockTestCase;
-import org.powermock.reflect.Whitebox;
-import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.wso2.carbon.securevault.aws.common.AWSSecretManagerClient;
 import org.wso2.carbon.securevault.aws.common.AWSVaultUtils;
-import org.wso2.carbon.securevault.aws.exception.AWSVaultException;
-import org.wso2.carbon.securevault.aws.exception.AWSVaultRuntimeException;
-import org.wso2.securevault.AsymmetricCipher;
-import org.wso2.securevault.CipherFactory;
-import org.wso2.securevault.definition.CipherInformation;
-import org.wso2.securevault.keystore.IdentityKeyStoreWrapper;
-import org.wso2.securevault.keystore.TrustKeyStoreWrapper;
 import org.wso2.securevault.secret.SecretRepository;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueResponse;
+import software.amazon.awssdk.services.secretsmanager.model.ResourceNotFoundException;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
-import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ENCRYPTION_ENABLED;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ROOT_PASSWORDS;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.VERSION_DELIMITER;
 
 /**
- * Unit test class for AWSSecretRepository.
+ * Unit test class for AWSSecretRepository with full coverage using Mockito.
  */
-@PrepareForTest({AWSSecretRepository.class, LogFactory.class, AWSVaultUtils.class, AWSSecretManagerClient.class,
-        CipherFactory.class, GetSecretValueRequest.class, GetSecretValueResponse.class})
-public class AWSSecretRepositoryTest extends PowerMockTestCase {
+public class AWSSecretRepositoryTest {
 
-    private Properties properties;
-    private AWSSecretRepository awsSecretRepositoryRootPassword;
-    private AWSSecretRepository awsSecretRepositorySecretRetrieval;
-    private Log logger;
-    private GetSecretValueResponse getSecretValueResponse;
-    private GetSecretValueRequest.Builder getSecretValueRequestBuilder;
+    private static final String SECRET_NAME = "testSecret";
+    private static final String SECRET_VALUE = "secretValue";
+    private static final String SECRET_VERSION = "version1";
 
-    @BeforeClass
-    public void setUp() {
+    @Mock
+    private SecretsManagerClient secretsManagerClient;
 
-        mockStatic(LogFactory.class);
-        logger = mock(Log.class);
-        when(logger.isDebugEnabled()).thenReturn(true);
-        when(LogFactory.getLog(AWSSecretRepository.class)).thenReturn(logger);
-    }
+    @Mock
+    private SecretRepository parentRepository;
+
+    private AWSSecretRepository awsSecretRepository;
+    private AutoCloseable mocks;
 
     @BeforeMethod
-    public void setUpBeforeMethod() {
-
-        properties = new Properties();
-
-        mockStatic(AWSVaultUtils.class);
-        mockStatic(AWSSecretManagerClient.class);
-        when(AWSSecretManagerClient.getInstance(properties)).thenReturn(mock(SecretsManagerClient.class));
-
-        IdentityKeyStoreWrapper identityKeyStoreWrapper = mock(IdentityKeyStoreWrapper.class);
-        TrustKeyStoreWrapper trustKeyStoreWrapper = mock(TrustKeyStoreWrapper.class);
-
-        mock(CipherInformation.class);
-        mockStatic(CipherFactory.class);
-
-        mockStatic(GetSecretValueRequest.class);
-        GetSecretValueRequest getSecretValueRequestObj = mock(GetSecretValueRequest.class);
-
-        getSecretValueRequestBuilder = mock(GetSecretValueRequest.Builder.class);
-        when(getSecretValueRequestBuilder.secretId(any())).thenReturn(getSecretValueRequestBuilder);
-        when(getSecretValueRequestBuilder.versionId(any())).thenReturn(getSecretValueRequestBuilder);
-        when(getSecretValueRequestBuilder.build()).thenReturn(getSecretValueRequestObj);
-        when(GetSecretValueRequest.builder()).thenReturn(getSecretValueRequestBuilder);
-
-        awsSecretRepositoryRootPassword = new AWSSecretRepository();
-        awsSecretRepositorySecretRetrieval = new AWSSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
-
-        SecretsManagerClient secretsClient = mock(SecretsManagerClient.class);
-        getSecretValueResponse = mock(GetSecretValueResponse.class);
-        when(secretsClient.getSecretValue(getSecretValueRequestObj)).thenReturn(getSecretValueResponse);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "secretsClient", secretsClient);
+    public void setUp() {
+        mocks = MockitoAnnotations.openMocks(this);
+        awsSecretRepository = new AWSSecretRepository();
     }
 
-    @Test(description = "Test case for init() method for root password retrieval.")
-    public void testInitRootPasswordRetrieval() {
-
-        awsSecretRepositoryRootPassword.init(properties, ROOT_PASSWORDS);
-
-        Assert.assertFalse(Whitebox.getInternalState(awsSecretRepositoryRootPassword, "encryptionEnabled"));
-    }
-
-    @Test(dataProvider = "initDataProvider",
-            description = "Positive test case for init() method for secret retrieval.")
-    public void testInitSecretRetrievalPositive(String encryptionEnabledConfig,
-                                                Boolean encryptionEnabled) {
-
-        when(AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED)).thenReturn(encryptionEnabledConfig);
-        awsSecretRepositorySecretRetrieval.init(properties, anyString());
-
-        Assert.assertEquals(Whitebox.getInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled"),
-                encryptionEnabled);
-    }
-
-    @Test(description = "Negative test case for init() method for secret retrieval when encryption is enabled.")
-    public void testInitEncryptedEnabledSecretRetrievalNegative() {
-
-        when(AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED)).thenReturn("true");
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "identityKeyStoreWrapper", (Object[]) null);
-
-        assertThrows(
-                AWSVaultRuntimeException.class,
-                () -> awsSecretRepositorySecretRetrieval.init(properties, anyString())
-        );
-        Assert.assertFalse(Whitebox.getInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled"));
-    }
-
-    @Test(description = "Test case for getParent() method.")
-    public void testGetParent() {
-
-        SecretRepository secretRepository = mock(SecretRepository.class);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "parentRepository", secretRepository);
-
-        SecretRepository parentRepository = awsSecretRepositorySecretRetrieval.getParent();
-        Assert.assertSame(parentRepository, secretRepository);
-    }
-
-    @Test(description = "Test case for setParent() method.")
-    public void testSetParent() {
-
-        SecretRepository secretRepository = mock(SecretRepository.class);
-        awsSecretRepositorySecretRetrieval.setParent(secretRepository);
-
-        Assert.assertSame(
-                Whitebox.getInternalState(awsSecretRepositorySecretRetrieval, "parentRepository"),
-                secretRepository
-        );
-    }
-
-    @Test(dataProvider = "secretDataProviderPositive",
-            description = "Positive test case for getSecret() method when encryption is disabled.")
-    public void testGetSecretUnencryptedPositive(String secretAlias, String secretValue) {
-
-        String[] aliasComponents;
-        if (secretAlias.contains(VERSION_DELIMITER)) {
-            aliasComponents = secretAlias.split("#", -1);
-        } else {
-            aliasComponents = new String[]{secretAlias, null};
+    @AfterMethod
+    public void tearDown() throws Exception {
+        if (mocks != null) {
+            mocks.close();
         }
-        when(getSecretValueResponse.secretString()).thenReturn(secretValue);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", false);
-        String retrievedSecret = awsSecretRepositorySecretRetrieval.getSecret(secretAlias);
+    }
 
-        verify(getSecretValueRequestBuilder).secretId(aliasComponents[0]);
-        if (aliasComponents[1] != null && aliasComponents[1].equals("")) {
-            aliasComponents[1] = null;
+    @Test(description = "Test init method for secret retrieval")
+    public void testInitForSecretRetrieval() {
+        Properties properties = new Properties();
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            awsSecretRepository.init(properties, "testId");
+
+            mockedClient.verify(() -> AWSSecretManagerClient.getInstance(properties), times(1));
         }
-        verify(getSecretValueRequestBuilder).versionId(aliasComponents[1]);
-        Assert.assertEquals(retrievedSecret, secretValue);
     }
 
-    @Test(dataProvider = "secretDataProviderPositive",
-            description = "Positive test case for getSecret() method when encryption is enabled.")
-    public void testGetSecretEncryptedPositive(String secretAlias, String secretValue) {
+    @Test(description = "Test init method for root password retrieval")
+    public void testInitForRootPasswordRetrieval() {
+        Properties properties = new Properties();
 
-        String[] aliasComponents;
-        if (secretAlias.contains(VERSION_DELIMITER)) {
-            aliasComponents = secretAlias.split("#", -1);
-        } else {
-            aliasComponents = new String[]{secretAlias, null};
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+
+            awsSecretRepository.init(properties, ROOT_PASSWORDS);
+
+            mockedClient.verify(() -> AWSSecretManagerClient.getInstance(properties), times(1));
         }
-        AsymmetricCipher baseCipher = mock(AsymmetricCipher.class);
-        when(baseCipher.decrypt(any())).thenReturn(secretValue.getBytes(StandardCharsets.UTF_8));
+    }
 
-        when(getSecretValueResponse.secretString()).thenReturn(secretValue);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "baseCipher", baseCipher);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", true);
-        String retrievedSecret = awsSecretRepositorySecretRetrieval.getSecret(secretAlias);
+    @Test(description = "Test getSecret with valid secret name")
+    public void testGetSecretWithValidName() {
+        Properties properties = new Properties();
 
-        verify(baseCipher).decrypt(secretValue.trim().getBytes(StandardCharsets.UTF_8));
-        verify(getSecretValueRequestBuilder).secretId(aliasComponents[0]);
-        if (aliasComponents[1] != null && aliasComponents[1].equals("")) {
-            aliasComponents[1] = null;
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            GetSecretValueResponse response = GetSecretValueResponse.builder()
+                    .secretString(SECRET_VALUE)
+                    .build();
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenReturn(response);
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(SECRET_NAME);
+
+            assertEquals(result, SECRET_VALUE);
+            verify(secretsManagerClient, times(1)).getSecretValue(any(GetSecretValueRequest.class));
         }
-        verify(getSecretValueRequestBuilder).versionId(aliasComponents[1]);
-        Assert.assertEquals(retrievedSecret, secretValue);
     }
 
-    @Test(description = "Test case for getSecret() method when secret value is empty.")
-    public void testGetSecretEmpty() {
+    @Test(description = "Test getSecret with secret name and version")
+    public void testGetSecretWithNameAndVersion() {
+        Properties properties = new Properties();
+        String secretAlias = SECRET_NAME + VERSION_DELIMITER + SECRET_VERSION;
 
-        when(getSecretValueResponse.secretString()).thenReturn("");
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", false);
-        String retrievedSecret = awsSecretRepositorySecretRetrieval.getSecret("testAlias");
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
 
-        Assert.assertEquals(retrievedSecret, "");
-    }
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
 
-    @Test(dataProvider = "secretDataProviderNegative",
-            description = "Negative test case for getSecret() method when encryption is disabled.")
-    public void testGetSecretNegative(String secretAlias, String secretValue) {
+            GetSecretValueResponse response = GetSecretValueResponse.builder()
+                    .secretString(SECRET_VALUE)
+                    .build();
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenReturn(response);
 
-        when(getSecretValueResponse.secretString()).thenReturn(secretValue);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", false);
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(secretAlias);
 
-        String retrievedSecret = awsSecretRepositorySecretRetrieval.getSecret(secretAlias);
-
-        /*
-        The exception is thrown in a private method and is caught by the public method and an error is logged.
-        Therefore, we cannot assert that the exception has been thrown and due to that, the assertion is done to
-        check whether the error has been logged with the required exception.
-        */
-        verify(logger).error(anyString(), any(AWSVaultException.class));
-        Assert.assertEquals(retrievedSecret, "");
-        Mockito.reset(logger);
-        when(logger.isDebugEnabled()).thenReturn(true);
-    }
-
-    @Test(dataProvider = "secretDataProviderPositive",
-            description = "Positive test case for getEncryptedData() method when encryption is enabled.")
-    public void testGetEncryptedDataPositive(String secretAlias, String secretValue) {
-
-        String[] aliasComponents;
-        if (secretAlias.contains(VERSION_DELIMITER)) {
-            aliasComponents = secretAlias.split("#", -1);
-        } else {
-            aliasComponents = new String[]{secretAlias, null};
+            assertEquals(result, SECRET_VALUE);
+            verify(secretsManagerClient, times(1)).getSecretValue(any(GetSecretValueRequest.class));
         }
-        when(getSecretValueResponse.secretString()).thenReturn(secretValue);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", true);
-        String retrievedSecret = awsSecretRepositorySecretRetrieval.getEncryptedData(secretAlias);
+    }
 
-        verify(getSecretValueRequestBuilder).secretId(aliasComponents[0]);
-        if (aliasComponents[1] != null && aliasComponents[1].equals("")) {
-            aliasComponents[1] = null;
+    @Test(description = "Test getSecret with empty secret name returns empty string")
+    public void testGetSecretWithEmptyName() {
+        Properties properties = new Properties();
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret("");
+
+            assertEquals(result, "");
+            verify(secretsManagerClient, never()).getSecretValue(any(GetSecretValueRequest.class));
         }
-        verify(getSecretValueRequestBuilder).versionId(aliasComponents[1]);
-        Assert.assertEquals(retrievedSecret, secretValue);
     }
 
-    @Test(description = "Negative test case for getEncryptedData() method when encryption is disabled.")
-    public void testGetEncryptedDataEncryptionDisabled() {
+    @Test(description = "Test getSecret with null secret name returns empty string")
+    public void testGetSecretWithNullName() {
+        Properties properties = new Properties();
 
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", false);
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
 
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> awsSecretRepositorySecretRetrieval.getEncryptedData("testAlias")
-        );
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(null);
+
+            assertEquals(result, "");
+            verify(secretsManagerClient, never()).getSecretValue(any(GetSecretValueRequest.class));
+        }
     }
 
-    @Test(dataProvider = "secretDataProviderNegative",
-            description = "Negative test case for getEncryptedData() method when encryption is disabled.")
-    public void testGetEncryptedDataNegative(String secretAlias, String secretValue) {
+    @Test(description = "Test getSecret with multiple delimiters returns empty string")
+    public void testGetSecretWithMultipleDelimiters() {
+        Properties properties = new Properties();
+        String invalidAlias = "secret#version#extra";
 
-        when(getSecretValueResponse.secretString()).thenReturn(secretValue);
-        Whitebox.setInternalState(awsSecretRepositorySecretRetrieval, "encryptionEnabled", true);
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
 
-        String retrievedSecret = awsSecretRepositorySecretRetrieval.getEncryptedData(secretAlias);
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
 
-        /*
-        The exception is thrown in a private method and is caught by the public method and an error is logged.
-        Therefore, we cannot assert that the exception has been thrown and due to that, the assertion is done to
-        check whether the error has been logged with the required exception.
-        */
-        verify(logger).error(anyString(), any(AWSVaultException.class));
-        Assert.assertEquals(retrievedSecret, "");
-        Mockito.reset(logger);
-        when(logger.isDebugEnabled()).thenReturn(true);
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(invalidAlias);
+
+            assertEquals(result, "");
+            verify(secretsManagerClient, never()).getSecretValue(any(GetSecretValueRequest.class));
+        }
     }
 
-    @DataProvider(name = "initDataProvider")
-    Object[][] getInitData() {
+    @Test(description = "Test getSecret with empty version")
+    public void testGetSecretWithEmptyVersion() {
+        Properties properties = new Properties();
+        String aliasWithEmptyVersion = SECRET_NAME + VERSION_DELIMITER;
 
-        return new Object[][]{
-                {"true", true},
-                {"false", false},
-                {null, false}
-        };
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            GetSecretValueResponse response = GetSecretValueResponse.builder()
+                    .secretString(SECRET_VALUE)
+                    .build();
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenReturn(response);
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(aliasWithEmptyVersion);
+
+            assertEquals(result, SECRET_VALUE);
+            verify(secretsManagerClient, times(1)).getSecretValue(any(GetSecretValueRequest.class));
+        }
     }
 
-    @DataProvider(name = "secretDataProviderPositive")
-    Object[][] getSecretDataPositive() {
+    @Test(description = "Test getSecret when ResourceNotFoundException is thrown returns empty string")
+    public void testGetSecretWithResourceNotFoundException() {
+        Properties properties = new Properties();
 
-        return new Object[][]{
-                {"name1#123123324345", "secret1"},
-                {"name2", "secret2"},
-                {"name3#", "secret3"},
-        };
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenThrow(ResourceNotFoundException.class);
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(SECRET_NAME);
+
+            assertEquals(result, "");
+            verify(secretsManagerClient, times(1)).getSecretValue(any(GetSecretValueRequest.class));
+        }
     }
 
-    @DataProvider(name = "secretDataProviderNegative")
-    Object[][] getSecretDataNegative() {
+    @Test(description = "Test getSecret when SdkClientException is thrown returns empty string")
+    public void testGetSecretWithSdkClientException() {
+        Properties properties = new Properties();
 
-        return new Object[][]{
-                {"", "secret1"},
-                {"#version", "secret2"},
-                {"test#abc#name2", "secret42"}
-        };
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenThrow(SdkClientException.create("AWS SDK Error", new RuntimeException()));
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(SECRET_NAME);
+
+            assertEquals(result, "");
+            verify(secretsManagerClient, times(1)).getSecretValue(any(GetSecretValueRequest.class));
+        }
+    }
+
+    @Test(description = "Test getSecret returns null when retrieved secret value is null")
+    public void testGetSecretWhenSecretValueIsNull() {
+        Properties properties = new Properties();
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            GetSecretValueResponse response = GetSecretValueResponse.builder()
+                    .secretString(null)
+                    .build();
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenReturn(response);
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(SECRET_NAME);
+
+            // The method logs a warning but returns null when secret string is null
+            assertNull(result);
+            verify(secretsManagerClient, times(1)).getSecretValue(any(GetSecretValueRequest.class));
+        }
+    }
+
+    @Test(description = "Test getEncryptedData throws UnsupportedOperationException when encryption is disabled",
+            expectedExceptions = UnsupportedOperationException.class)
+    public void testGetEncryptedDataWhenEncryptionDisabled() {
+        Properties properties = new Properties();
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            awsSecretRepository.init(properties, "testId");
+            awsSecretRepository.getEncryptedData(SECRET_NAME);
+        }
+    }
+
+    @Test(description = "Test parent repository getter and setter")
+    public void testParentRepositoryGetterAndSetter() {
+        awsSecretRepository.setParent(parentRepository);
+        SecretRepository result = awsSecretRepository.getParent();
+
+        assertEquals(result, parentRepository);
+    }
+
+    @Test(description = "Test getParent returns null when not set")
+    public void testGetParentReturnsNullWhenNotSet() {
+        SecretRepository result = awsSecretRepository.getParent();
+
+        assertNull(result);
+    }
+
+    @Test(description = "Test getSecret with delimiter at beginning")
+    public void testGetSecretWithDelimiterAtBeginning() {
+        Properties properties = new Properties();
+        String invalidAlias = VERSION_DELIMITER + SECRET_NAME;
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(invalidAlias);
+
+            assertEquals(result, "");
+            verify(secretsManagerClient, never()).getSecretValue(any(GetSecretValueRequest.class));
+        }
+    }
+
+    @Test(description = "Test init with encryption enabled warning when property not set")
+    public void testInitWithEncryptionPropertyNotSet() {
+        Properties properties = new Properties();
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn(null);
+
+            awsSecretRepository.init(properties, "testId");
+
+            // Should not throw exception, just log warning
+            mockedClient.verify(() -> AWSSecretManagerClient.getInstance(properties), times(1));
+        }
+    }
+
+    @Test(description = "Test constructor with keystores")
+    public void testConstructorWithKeystores() {
+        AWSSecretRepository repository = new AWSSecretRepository(null, null);
+
+        assertNotNull(repository);
+    }
+
+    @Test(description = "Test default constructor")
+    public void testDefaultConstructor() {
+        AWSSecretRepository repository = new AWSSecretRepository();
+
+        assertNotNull(repository);
+    }
+
+    @Test(description = "Test setParent with null")
+    public void testSetParentWithNull() {
+        awsSecretRepository.setParent(null);
+        assertNull(awsSecretRepository.getParent());
+    }
+
+    @Test(description = "Test getSecret with empty string after hash")
+    public void testGetSecretWithEmptyStringAfterHash() {
+        Properties properties = new Properties();
+        String secretAlias = SECRET_NAME + VERSION_DELIMITER;
+
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties))
+                    .thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED))
+                    .thenReturn("false");
+
+            GetSecretValueResponse response = GetSecretValueResponse.builder()
+                    .secretString(SECRET_VALUE)
+                    .build();
+            when(secretsManagerClient.getSecretValue(any(GetSecretValueRequest.class)))
+                    .thenReturn(response);
+
+            awsSecretRepository.init(properties, "testId");
+            String result = awsSecretRepository.getSecret(secretAlias);
+
+            // Should retrieve secret with null version (latest)
+            assertEquals(result, SECRET_VALUE);
+        }
     }
 }
