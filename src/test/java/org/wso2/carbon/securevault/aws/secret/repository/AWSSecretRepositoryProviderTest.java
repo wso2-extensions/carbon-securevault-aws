@@ -99,7 +99,8 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test provider implements SecretRepositoryProvider interface")
     public void testImplementsInterface() {
-        Assert.assertTrue(provider instanceof org.wso2.securevault.secret.SecretRepositoryProvider);
+        Assert.assertEquals(AWSSecretRepositoryProvider.class.getInterfaces()[0].getName(),
+                "org.wso2.securevault.secret.SecretRepositoryProvider");
     }
 
     @Test(description = "Test provider can be instantiated")

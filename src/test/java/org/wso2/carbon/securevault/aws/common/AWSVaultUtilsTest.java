@@ -58,8 +58,8 @@ public class AWSVaultUtilsTest {
             synchronized (AWSVaultUtils.class) {
                 field.set(null, null);
             }
-        } catch (Exception e) {
-            // Fail silently - field reset is for test isolation
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new AssertionError("Failed to reset propertiesPrefix field for test isolation", e);
         }
     }
 

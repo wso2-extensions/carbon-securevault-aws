@@ -118,8 +118,8 @@ public class AWSSecretCallbackHandlerTest {
             Field privateKeyField = AWSSecretCallbackHandler.class.getDeclaredField("privateKeyPassword");
             privateKeyField.setAccessible(true);
             privateKeyField.set(null, null);
-        } catch (Exception e) {
-            // Fail silently
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new AssertionError("Failed to reset static fields in AWSSecretCallbackHandler for test isolation", e);
         }
     }
 
@@ -150,7 +150,8 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test that callback handler extends AbstractSecretCallbackHandler")
     public void testInheritance() {
-        assertTrue(callbackHandler instanceof org.wso2.securevault.secret.AbstractSecretCallbackHandler);
+        assertEquals(AWSSecretCallbackHandler.class.getSuperclass().getName(),
+                "org.wso2.securevault.secret.AbstractSecretCallbackHandler");
     }
 
     @Test(dataProvider = "missingConfigProvider",
@@ -302,7 +303,7 @@ public class AWSSecretCallbackHandlerTest {
             callbackHandler.handleSingleSecretCallback(callback);
 
             assertNotNull(callback.getSecret(), "Secret should not be null");
-            assertEquals(new String(callback.getSecret()), expectedPassword);
+            assertEquals(String.valueOf(callback.getSecret()), expectedPassword);
         }
     }
 
@@ -322,11 +323,11 @@ public class AWSSecretCallbackHandlerTest {
 
             SingleSecretCallback callback1 = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
             callbackHandler.handleSingleSecretCallback(callback1);
-            assertEquals(new String(callback1.getSecret()), "cachedPassword");
+            assertEquals(String.valueOf(callback1.getSecret()), "cachedPassword");
 
             SingleSecretCallback callback2 = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
             callbackHandler.handleSingleSecretCallback(callback2);
-            assertEquals(new String(callback2.getSecret()), "cachedPassword");
+            assertEquals(String.valueOf(callback2.getSecret()), "cachedPassword");
         }
     }
 
@@ -412,7 +413,7 @@ public class AWSSecretCallbackHandlerTest {
             callbackHandler.handleSingleSecretCallback(callback);
 
             assertNotNull(callback.getSecret());
-            assertTrue(new String(callback.getSecret()).length() > 0);
+            assertTrue(String.valueOf(callback.getSecret()).length() > 0);
         }
     }
 }

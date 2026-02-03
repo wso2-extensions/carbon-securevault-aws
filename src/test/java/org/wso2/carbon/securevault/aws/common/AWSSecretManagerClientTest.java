@@ -73,8 +73,8 @@ public class AWSSecretManagerClientTest {
             synchronized (AWSSecretManagerClient.class) {
                 field.set(null, null);
             }
-        } catch (Exception e) {
-            // Fail silently - field reset is for test isolation
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new AssertionError("Failed to reset secretsClient field for test isolation", e);
         }
         
         // Also reset the propertiesPrefix in AWSVaultUtils
@@ -84,8 +84,8 @@ public class AWSSecretManagerClientTest {
             synchronized (AWSVaultUtils.class) {
                 prefixField.set(null, null);
             }
-        } catch (Exception e) {
-            // Fail silently - field reset is for test isolation
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new AssertionError("Failed to reset propertiesPrefix field for test isolation", e);
         }
     }
 

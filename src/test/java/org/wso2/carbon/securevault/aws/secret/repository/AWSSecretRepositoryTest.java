@@ -23,6 +23,7 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.wso2.carbon.securevault.aws.common.AWSSecretManagerClient;
 import org.wso2.carbon.securevault.aws.common.AWSVaultUtils;
@@ -179,7 +180,7 @@ public class AWSSecretRepositoryTest {
         }
     }
 
-    @org.testng.annotations.DataProvider(name = "emptyNamesProvider")
+    @DataProvider(name = "emptyNamesProvider")
     public Object[][] emptyNamesProvider() {
         return new Object[][] { {"", ""}, {null, ""} };
     }
@@ -197,7 +198,7 @@ public class AWSSecretRepositoryTest {
         }
     }
 
-    @org.testng.annotations.DataProvider(name = "invalidDelimitersProvider")
+    @DataProvider(name = "invalidDelimitersProvider")
     public Object[][] invalidDelimitersProvider() {
         return new Object[][] {
             {"secret#version#extra"},  // Multiple delimiters
@@ -239,7 +240,7 @@ public class AWSSecretRepositoryTest {
         }
     }
 
-    @org.testng.annotations.DataProvider(name = "exceptionsProvider")
+    @DataProvider(name = "exceptionsProvider")
     public Object[][] exceptionsProvider() {
         return new Object[][] {
             {ResourceNotFoundException.class},
@@ -266,7 +267,7 @@ public class AWSSecretRepositoryTest {
         }
     }
 
-    @org.testng.annotations.DataProvider(name = "nullEmptyProvider")
+    @DataProvider(name = "nullEmptyProvider")
     public Object[][] nullEmptyProvider() {
         return new Object[][] { {null, null}, {"", ""} };
     }
@@ -306,7 +307,7 @@ public class AWSSecretRepositoryTest {
         }
     }
 
-    @org.testng.annotations.DataProvider(name = "encryptionPropertyProvider")
+    @DataProvider(name = "encryptionPropertyProvider")
     public Object[][] encryptionPropertyProvider() {
         return new Object[][] { {null}, {""} };
     }
@@ -352,7 +353,7 @@ public class AWSSecretRepositoryTest {
         }
     }
 
-    @org.testng.annotations.DataProvider(name = "encryptionAlgorithmProvider")
+    @DataProvider(name = "encryptionAlgorithmProvider")
     public Object[][] encryptionAlgorithmProvider() {
         return new Object[][] { {"RSA"}, {null}, {"AES"} };  // null tests default algorithm
     }
