@@ -110,6 +110,7 @@ public class AWSSecretCallbackHandlerTest {
      * Reset static fields in AWSSecretCallbackHandler for test isolation.
      */
     private void resetStaticFields() {
+
         try {
             Field keystoreField = AWSSecretCallbackHandler.class.getDeclaredField("keyStorePassword");
             keystoreField.setAccessible(true);
@@ -127,6 +128,7 @@ public class AWSSecretCallbackHandlerTest {
      * Helper method to create a test configuration file.
      */
     private void createTestConfigFile(String content) throws IOException {
+
         try (FileWriter writer = new FileWriter(TEST_CONFIG_FILE)) {
             writer.write(content);
         }
@@ -134,6 +136,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @DataProvider(name = "missingConfigProvider")
     public Object[][] missingConfigProvider() {
+
         return new Object[][]{
                 {"no config file", null, ".*Error loading configurations.*"},
                 {"no keystore alias", "# Empty config\n",
@@ -150,6 +153,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test that callback handler extends AbstractSecretCallbackHandler")
     public void testInheritance() {
+
         assertEquals(AWSSecretCallbackHandler.class.getSuperclass().getName(),
                 "org.wso2.securevault.secret.AbstractSecretCallbackHandler");
     }
@@ -168,6 +172,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @DataProvider(name = "privateKeyAliasProvider")
     public Object[][] privateKeyAliasProvider() {
+
         return new Object[][]{
                 {"not set", "secretRepositories.vault.properties.credentialProviders=ENV\n",
                         IDENTITY_KEY_PASSWORD_ALIAS},
@@ -181,6 +186,7 @@ public class AWSSecretCallbackHandlerTest {
             description = "Test private key alias scenarios")
     public void testPrivateKeyAliasScenarios(String scenario, String extraConfig,
                                               String callbackId) throws IOException {
+
         System.setProperty("key.password", "true");
         createTestConfigFile(BASE_CONFIG + extraConfig);
 
@@ -195,6 +201,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @DataProvider(name = "keyPasswordPropertyProvider")
     public Object[][] keyPasswordPropertyProvider() {
+
         return new Object[][]{
                 {"default null", null, null},
                 {"set to true", "true", "true"},
@@ -204,6 +211,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(dataProvider = "keyPasswordPropertyProvider", description = "Test system property key.password")
     public void testKeyPasswordSystemProperty(String testCase, String setValue, String expectedValue) {
+
         if (setValue != null) {
             System.setProperty("key.password", setValue);
         }
@@ -212,6 +220,8 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test multiple callback IDs are supported")
     public void testSupportedCallbackIds() {
+
+
         SingleSecretCallback callback1 = new SingleSecretCallback(IDENTITY_STORE_PASSWORD_ALIAS);
         SingleSecretCallback callback2 = new SingleSecretCallback(IDENTITY_KEY_PASSWORD_ALIAS);
 
@@ -221,6 +231,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @DataProvider(name = "pathVerificationProvider")
     public Object[][] pathVerificationProvider() {
+
         return new Object[][]{
                 {"config directory", TEST_CONFIG_DIR, new String[]{"repository", "conf", "security"}},
                 {"config file", TEST_CONFIG_FILE, new String[]{"secret-conf.properties"}}
@@ -229,6 +240,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(dataProvider = "pathVerificationProvider", description = "Test path construction")
     public void testPathConstruction(String pathType, String path, String[] expectedParts) {
+
         for (String part : expectedParts) {
             assertTrue(path.contains(part));
         }
@@ -236,6 +248,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test static fields are reset between tests")
     public void testStaticFieldsReset() throws Exception {
+
         Field keystoreField = AWSSecretCallbackHandler.class.getDeclaredField("keyStorePassword");
         keystoreField.setAccessible(true);
         assertNull(keystoreField.get(null), "keyStorePassword should be null after reset");
@@ -243,11 +256,13 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test carbon.home system property is set correctly")
     public void testCarbonHomeProperty() {
+
         assertEquals(System.getProperty("carbon.home"), TEMP_DIR);
     }
 
     @Test(description = "Test config file can be created and read")
     public void testConfigFileCreationAndReading() throws IOException {
+
         String testContent = "test.property=testValue\n";
         createTestConfigFile(testContent);
 
@@ -258,6 +273,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @DataProvider(name = "passwordRetrievalProvider")
     public Object[][] passwordRetrievalProvider() {
+
         return new Object[][]{
                 {"same password", false, "keystoreAlias", null, "testPassword123", null,
                         IDENTITY_STORE_PASSWORD_ALIAS, "testPassword123"},
@@ -274,6 +290,7 @@ public class AWSSecretCallbackHandlerTest {
                                                   String keystorePass, String privateKeyPass,
                                                   String callbackId, String expectedPassword)
             throws IOException {
+
         if (setKeyPassword) {
             System.setProperty("key.password", "true");
         }
@@ -309,6 +326,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test that cached passwords are reused on subsequent calls")
     public void testPasswordCaching() throws Exception {
+
         createTestConfigFile(BASE_CONFIG);
 
         SecretsManagerClient mockSecretsClient = mock(SecretsManagerClient.class);
@@ -333,6 +351,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @DataProvider(name = "emptyPasswordProvider")
     public Object[][] emptyPasswordProvider() {
+
         return new Object[][]{
                 {"keystore password empty", false, "", null, IDENTITY_STORE_PASSWORD_ALIAS},
                 {"private key password empty", true, "keystorePass123", "", IDENTITY_KEY_PASSWORD_ALIAS}
@@ -344,6 +363,7 @@ public class AWSSecretCallbackHandlerTest {
             expectedExceptionsMessageRegExp = ".*Error in retrieving.*")
     public void testExceptionWhenPasswordEmpty(String scenario, boolean setKeyPassword, String keystorePass,
                                                  String privateKeyPass, String callbackId) throws IOException {
+
         if (setKeyPassword) {
             System.setProperty("key.password", "true");
         }
@@ -375,6 +395,7 @@ public class AWSSecretCallbackHandlerTest {
             expectedExceptions = AWSVaultRuntimeException.class,
             expectedExceptionsMessageRegExp = ".*keystore.identity.key.alias property has not been set.*")
     public void testExceptionWhenPrivateKeyAliasNotSetButRequired() throws IOException {
+
         System.setProperty("key.password", "true");
         createTestConfigFile(BASE_CONFIG);
 
@@ -395,6 +416,7 @@ public class AWSSecretCallbackHandlerTest {
 
     @Test(description = "Test setting secret for identity.key.password ID")
     public void testSetSecretForPrivateKeyPasswordId() throws IOException {
+        
         System.setProperty("key.password", "true");
         createTestConfigFile(BASE_CONFIG + "keystore.identity.key.alias=privateKeyAlias\n");
 

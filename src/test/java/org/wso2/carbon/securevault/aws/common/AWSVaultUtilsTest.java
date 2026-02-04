@@ -52,6 +52,7 @@ public class AWSVaultUtilsTest {
      * Reset the static propertiesPrefix field to ensure test isolation.
      */
     private void resetPropertiesPrefix() {
+
         try {
             Field field = AWSVaultUtils.class.getDeclaredField("propertiesPrefix");
             field.setAccessible(true);
@@ -83,6 +84,7 @@ public class AWSVaultUtilsTest {
     @Test(description = "Test getProperty with different configuration formats",
           dataProvider = "configFormats")
     public void testGetPropertyWithConfigFormats(String configType, String prefix, String description) {
+
         Properties properties = new Properties();
         properties.setProperty(configType, "vault");
         properties.setProperty(prefix + "testProperty", TEST_PROPERTY_VALUE);
@@ -95,6 +97,7 @@ public class AWSVaultUtilsTest {
     @Test(description = "Test getProperty with multiple properties",
           dataProvider = "configFormats")
     public void testMultipleProperties(String configType, String prefix, String description) {
+
         Properties properties = new Properties();
         properties.setProperty(configType, "vault");
         properties.setProperty(prefix + "prop1", "value1");
@@ -108,6 +111,7 @@ public class AWSVaultUtilsTest {
 
     @Test(description = "Test getProperty when properties prefix is already cached")
     public void testGetPropertyWithCachedPrefix() {
+
         Properties properties = new Properties();
         properties.setProperty(SECRET_PROVIDERS, "vault");
         properties.setProperty("secretProviders.vault.repositories.aws.properties.property1", "value1");
@@ -122,6 +126,7 @@ public class AWSVaultUtilsTest {
 
     @Test(description = "Test getProperty when property does not exist")
     public void testGetPropertyWhenPropertyNotFound() {
+
         Properties properties = new Properties();
         properties.setProperty(SECRET_PROVIDERS, "vault");
 
@@ -134,11 +139,13 @@ public class AWSVaultUtilsTest {
             expectedExceptions = IllegalArgumentException.class,
             expectedExceptionsMessageRegExp = "Properties cannot be null.")
     public void testGetPropertyWithNullProperties() {
+
         AWSVaultUtils.getProperty(null, "testProperty");
     }
 
     @Test(description = "Test getProperty with empty property name returns null")
     public void testGetPropertyWithEmptyPropertyName() {
+
         Properties properties = new Properties();
         properties.setProperty(SECRET_PROVIDERS, "vault");
 
@@ -148,6 +155,7 @@ public class AWSVaultUtilsTest {
     @Test(description = "Test getProperty with null property name throws NullPointerException",
             expectedExceptions = NullPointerException.class)
     public void testGetPropertyWithNullPropertyName() {
+
         Properties properties = new Properties();
         properties.setProperty(SECRET_PROVIDERS, "vault");
 
@@ -156,6 +164,7 @@ public class AWSVaultUtilsTest {
 
     @Test(description = "Test property with special characters in name")
     public void testGetPropertyWithSpecialCharacters() {
+
         Properties properties = new Properties();
         properties.setProperty(SECRET_PROVIDERS, "vault");
         properties.setProperty("secretProviders.vault.repositories.aws.properties.test.property.with.dots",
@@ -166,6 +175,7 @@ public class AWSVaultUtilsTest {
 
     @Test(description = "Test sequential calls with different property types")
     public void testSequentialCallsWithDifferentConfigTypes() {
+
         resetPropertiesPrefix();
 
         Properties legacyProps = new Properties();
@@ -185,6 +195,7 @@ public class AWSVaultUtilsTest {
 
     @Test(description = "Test synchronized access to propertiesPrefix")
     public void testSynchronizedPrefixAccess() {
+
         resetPropertiesPrefix();
 
         Properties properties = new Properties();
@@ -198,6 +209,7 @@ public class AWSVaultUtilsTest {
 
     @Test(description = "Test properties with empty secret repositories value")
     public void testPropertiesWithEmptySecretRepositories() {
+        
         Properties properties = new Properties();
         properties.setProperty(SECRET_REPOSITORIES, "");
         properties.setProperty("secretProviders.vault.repositories.aws.properties.test", TEST_PROPERTY_VALUE);

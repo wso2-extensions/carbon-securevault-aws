@@ -67,6 +67,7 @@ public class AWSSecretManagerClientTest {
      * Reset the static secretsClient field to ensure test isolation.
      */
     private void resetSecretsClient() {
+
         try {
             Field field = AWSSecretManagerClient.class.getDeclaredField("secretsClient");
             field.setAccessible(true);
@@ -93,6 +94,7 @@ public class AWSSecretManagerClientTest {
             dataProvider = "invalidRegions",
             expectedExceptions = AWSVaultRuntimeException.class)
     public void testGetInstanceWithInvalidRegions(String region, String expectedMessagePattern, String description) {
+
         Properties properties = new Properties();
         properties.setProperty(SECRET_REPOSITORIES, "vault");
         
@@ -138,6 +140,7 @@ public class AWSSecretManagerClientTest {
 
     @Test(description = "Test getInstance returns singleton instance")
     public void testGetInstanceSingleton() {
+
         resetSecretsClient();
 
         Properties properties = new Properties();
@@ -204,6 +207,7 @@ public class AWSSecretManagerClientTest {
     @Test(description = "Test getInstance with different credential providers",
           dataProvider = "credentialProviders")
     public void testGetInstanceWithCredentialProviders(String credentialProvider, String region) {
+
         resetSecretsClient();
 
         Properties properties = new Properties();
@@ -235,6 +239,7 @@ public class AWSSecretManagerClientTest {
 
     @Test(description = "Test AWS SDK integration components")
     public void testAWSSDKIntegration() throws Exception {
+        
         resetSecretsClient();
 
         Properties properties = new Properties();

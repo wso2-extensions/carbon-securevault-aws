@@ -50,6 +50,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @AfterMethod
     public void tearDown() throws Exception {
+
         if (mocks != null) {
             mocks.close();
         }
@@ -57,6 +58,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test getSecretRepository returns AWSSecretRepository instance")
     public void testGetSecretRepository() {
+
         SecretRepository repository = provider.getSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
 
         Assert.assertNotNull(repository);
@@ -65,6 +67,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test getSecretRepository with null identity keystore wrapper")
     public void testGetSecretRepositoryWithNullIdentityKeystore() {
+
         SecretRepository repository = provider.getSecretRepository(null, trustKeyStoreWrapper);
 
         Assert.assertNotNull(repository);
@@ -73,6 +76,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test getSecretRepository with null trust keystore wrapper")
     public void testGetSecretRepositoryWithNullTrustKeystore() {
+
         SecretRepository repository = provider.getSecretRepository(identityKeyStoreWrapper, null);
 
         Assert.assertNotNull(repository);
@@ -81,6 +85,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test getSecretRepository with both keystores null")
     public void testGetSecretRepositoryWithBothKeystoresNull() {
+
         SecretRepository repository = provider.getSecretRepository(null, null);
 
         Assert.assertNotNull(repository);
@@ -89,6 +94,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test multiple calls to getSecretRepository return different instances")
     public void testGetSecretRepositoryReturnsNewInstances() {
+
         SecretRepository repository1 = provider.getSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
         SecretRepository repository2 = provider.getSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
 
@@ -99,12 +105,14 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test provider implements SecretRepositoryProvider interface")
     public void testImplementsInterface() {
+
         Assert.assertEquals(AWSSecretRepositoryProvider.class.getInterfaces()[0].getName(),
                 "org.wso2.securevault.secret.SecretRepositoryProvider");
     }
 
     @Test(description = "Test provider can be instantiated")
     public void testProviderInstantiation() {
+
         AWSSecretRepositoryProvider newProvider = new AWSSecretRepositoryProvider();
 
         Assert.assertNotNull(newProvider);
@@ -112,6 +120,7 @@ public class AWSSecretRepositoryProviderTest {
 
     @Test(description = "Test multiple providers are independent")
     public void testMultipleProvidersIndependent() {
+        
         AWSSecretRepositoryProvider provider1 = new AWSSecretRepositoryProvider();
         AWSSecretRepositoryProvider provider2 = new AWSSecretRepositoryProvider();
 

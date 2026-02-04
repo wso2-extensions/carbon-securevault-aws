@@ -95,6 +95,7 @@ public class AWSSecretRepositoryTest {
 
     // Helper method to initialize repository with mocked client
     private void initRepository(Properties properties, String id, String encryptionEnabled) {
+
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
             
@@ -110,6 +111,7 @@ public class AWSSecretRepositoryTest {
 
     // Helper method to setup secret response
     private void setupSecretResponse(String secretValue) {
+
         GetSecretValueResponse response = GetSecretValueResponse.builder()
                 .secretString(secretValue)
                 .build();
@@ -118,6 +120,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test init method for secret retrieval")
     public void testInitForSecretRetrieval() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -130,6 +133,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test init method for root password retrieval")
     public void testInitForRootPasswordRetrieval() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class)) {
             mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties)).thenReturn(secretsManagerClient);
@@ -140,6 +144,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret with valid secret name")
     public void testGetSecretWithValidName() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -154,6 +159,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret with secret name and version")
     public void testGetSecretWithNameAndVersion() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -169,6 +175,7 @@ public class AWSSecretRepositoryTest {
     @Test(description = "Test getSecret with empty/null names returns empty string", 
           dataProvider = "emptyNamesProvider")
     public void testGetSecretWithEmptyOrNullName(String secretName, String expected) {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -187,6 +194,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret with invalid delimiters", dataProvider = "invalidDelimitersProvider")
     public void testGetSecretWithInvalidDelimiters(String alias) {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -208,6 +216,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret with empty version")
     public void testGetSecretWithEmptyVersion() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -222,6 +231,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret with exceptions", dataProvider = "exceptionsProvider")
     public void testGetSecretWithExceptions(Class<? extends Exception> exceptionClass) {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -250,6 +260,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret when secret value is null or empty", dataProvider = "nullEmptyProvider")
     public void testGetSecretWithNullOrEmptyValue(String secretValue, String expected) {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -275,6 +286,7 @@ public class AWSSecretRepositoryTest {
     @Test(description = "Test getEncryptedData throws UnsupportedOperationException when encryption is disabled",
             expectedExceptions = UnsupportedOperationException.class)
     public void testGetEncryptedDataWhenEncryptionDisabled() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -287,6 +299,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test parent repository methods")
     public void testParentRepositoryMethods() {
+
         assertNull(awsSecretRepository.getParent());
         awsSecretRepository.setParent(parentRepository);
         assertEquals(awsSecretRepository.getParent(), parentRepository);
@@ -296,6 +309,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test init with encryption property variations", dataProvider = "encryptionPropertyProvider")
     public void testInitWithEncryptionPropertyVariations(String encryptionValue) {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -321,6 +335,7 @@ public class AWSSecretRepositoryTest {
     // Helper method for encryption tests
     private AWSSecretRepository setupEncryptionTest(Properties properties, String algorithm, 
                                                      String encryptedValue, String decryptedValue) {
+
         AWSSecretRepository repo = new AWSSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class);
@@ -341,6 +356,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getSecret with encryption enabled", dataProvider = "encryptionAlgorithmProvider")
     public void testGetSecretWithEncryption(String algorithm) {
+
         Properties properties = new Properties();
         String encryptedValue = "ZW5jcnlwdGVk";
         String decryptedValue = "decrypted";
@@ -362,6 +378,7 @@ public class AWSSecretRepositoryTest {
             expectedExceptions = AWSVaultRuntimeException.class,
             expectedExceptionsMessageRegExp = ".*Key Store has not been initialized.*")
     public void testEncryptionEnabledWithoutKeystore() {
+
         Properties properties = new Properties();
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
              MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
@@ -373,6 +390,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getEncryptedData with encryption enabled")
     public void testGetEncryptedDataWithEncryptionEnabled() {
+
         Properties properties = new Properties();
         String encryptedValue = "encryptedSecretValue";
         
@@ -386,6 +404,7 @@ public class AWSSecretRepositoryTest {
 
     @Test(description = "Test getEncryptedData returns empty string on exception")
     public void testGetEncryptedDataWithException() {
+        
         Properties properties = new Properties();
         AWSSecretRepository repo = new AWSSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
         try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
