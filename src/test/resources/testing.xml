@@ -22,6 +22,7 @@
     <test name="carbon-securevault-aws">
         <classes>
             <class name="org.wso2.carbon.securevault.aws.common.AWSSecretManagerClientTest"/>
+            <class name="org.wso2.carbon.securevault.aws.common.AWSVaultConstantsTest"/>
             <class name="org.wso2.carbon.securevault.aws.common.AWSVaultUtilsTest"/>
             <class name="org.wso2.carbon.securevault.aws.secret.handler.AWSSecretCallbackHandlerTest"/>
             <class name="org.wso2.carbon.securevault.aws.secret.repository.AWSSecretRepositoryTest"/>
