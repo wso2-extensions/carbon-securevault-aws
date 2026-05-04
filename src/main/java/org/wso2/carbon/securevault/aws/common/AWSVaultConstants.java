@@ -27,8 +27,35 @@ import java.io.File;
  */
 public class AWSVaultConstants {
 
-    public static final String CONFIG_FILE_PATH = CarbonUtils.getCarbonConfigDirPath() + File.separator
+    public static final String CONFIG_FILE_PATH = getCarbonConfigDirPath() + File.separator
             + "security" + File.separator + "secret-conf.properties";
+
+    /**
+     * Resolves the Carbon config directory path. Uses CarbonUtils.getCarbonConfigDirPath() when the
+     * carbon.utils bundle is available (optional OSGi dependency). Falls back to the "carbon.config.dir"
+     * system property for environments like Micro Integrator that run without Carbon Kernel.
+     *
+     * @return the Carbon config directory path.
+     * @throws IllegalStateException if neither CarbonUtils nor the system property is available.
+     */
+    private static String getCarbonConfigDirPath() {
+
+        try {
+            return CarbonUtils.getCarbonConfigDirPath();
+        } catch (NoClassDefFoundError e) {
+            String configDir = System.getProperty("carbon.config.dir");
+            if (configDir != null) {
+                configDir = configDir.trim();
+                if (!configDir.isEmpty()) {
+                    return configDir;
+                }
+            }
+            throw new IllegalStateException(
+                    "Cannot resolve Carbon config directory: carbon.utils bundle is not available " +
+                    "and 'carbon.config.dir' system property is not set.", e);
+        }
+    }
+
     public static final String IDENTITY_STORE_PASSWORD_ALIAS = "keystore.identity.store.alias";
     public static final String IDENTITY_KEY_PASSWORD_ALIAS = "keystore.identity.key.alias";
     public static final String COMMA = ",";
