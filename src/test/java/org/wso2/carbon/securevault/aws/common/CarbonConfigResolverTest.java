@@ -19,43 +19,20 @@
 package org.wso2.carbon.securevault.aws.common;
 
 import org.mockito.MockedStatic;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.wso2.carbon.utils.CarbonUtils;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import static org.mockito.Mockito.mockStatic;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 /**
- * Unit tests for the config-directory resolution logic in AWSVaultConstants.
+ * Unit tests for CarbonConfigResolver.
  */
-public class AWSVaultConstantsTest {
+public class CarbonConfigResolverTest {
 
     private static final String CONFIG_DIR_PROPERTY = "carbon.config.dir";
     private static final String TEST_CONFIG_DIR = "/test/conf";
-
-    @BeforeClass
-    public void initAWSVaultConstants() {
-
-        // AWSVaultConstants.CONFIG_FILE_PATH is a static final evaluated once at class init.
-        // This access forces initialization now, before any test mocks are active, so that
-        // subsequent mocking of CarbonUtils cannot permanently corrupt the constant's value.
-        System.setProperty("carbon.home", System.getProperty("java.io.tmpdir"));
-        AWSVaultConstants.CONFIG_FILE_PATH.length();
-    }
-
-    @AfterClass
-    public void cleanUp() {
-
-        System.clearProperty("carbon.home");
-    }
 
     @AfterMethod
     public void clearSystemProperty() {
@@ -64,7 +41,7 @@ public class AWSVaultConstantsTest {
     }
 
     @Test(description = "When CarbonUtils is unavailable, the carbon.config.dir system property is used as fallback")
-    public void testFallbackToSystemPropertyWhenCarbonUtilsUnavailable() throws Exception {
+    public void testFallbackToSystemPropertyWhenCarbonUtilsUnavailable() {
 
         System.setProperty(CONFIG_DIR_PROPERTY, TEST_CONFIG_DIR);
 
@@ -72,12 +49,12 @@ public class AWSVaultConstantsTest {
             carbonUtils.when(CarbonUtils::getCarbonConfigDirPath)
                        .thenThrow(new NoClassDefFoundError("org/wso2/carbon/utils/CarbonUtils"));
 
-            assertEquals(invokeCarbonConfigDirPath(), TEST_CONFIG_DIR);
+            assertEquals(CarbonConfigResolver.getCarbonConfigDirPath(), TEST_CONFIG_DIR);
         }
     }
 
     @Test(description = "System property value with surrounding whitespace is trimmed before use")
-    public void testSystemPropertyValueIsTrimmed() throws Exception {
+    public void testSystemPropertyValueIsTrimmed() {
 
         System.setProperty(CONFIG_DIR_PROPERTY, "  " + TEST_CONFIG_DIR + "  ");
 
@@ -85,23 +62,25 @@ public class AWSVaultConstantsTest {
             carbonUtils.when(CarbonUtils::getCarbonConfigDirPath)
                        .thenThrow(new NoClassDefFoundError("org/wso2/carbon/utils/CarbonUtils"));
 
-            assertEquals(invokeCarbonConfigDirPath(), TEST_CONFIG_DIR);
+            assertEquals(CarbonConfigResolver.getCarbonConfigDirPath(), TEST_CONFIG_DIR);
         }
     }
 
-    @Test(description = "When neither CarbonUtils nor system property is available, IllegalStateException is thrown")
-    public void testIllegalStateExceptionWhenNeitherSourceAvailable() throws Exception {
+    @Test(description = "When neither CarbonUtils nor system property is available, IllegalStateException is thrown",
+            expectedExceptions = IllegalStateException.class)
+    public void testIllegalStateExceptionWhenNeitherSourceAvailable() {
 
         try (MockedStatic<CarbonUtils> carbonUtils = mockStatic(CarbonUtils.class)) {
             carbonUtils.when(CarbonUtils::getCarbonConfigDirPath)
                        .thenThrow(new NoClassDefFoundError("org/wso2/carbon/utils/CarbonUtils"));
 
-            assertIllegalStateException();
+            CarbonConfigResolver.getCarbonConfigDirPath();
         }
     }
 
-    @Test(description = "When CarbonUtils is unavailable and system property is blank, IllegalStateException is thrown")
-    public void testIllegalStateExceptionWhenSystemPropertyIsBlank() throws Exception {
+    @Test(description = "When CarbonUtils is unavailable and system property is blank, IllegalStateException is thrown",
+            expectedExceptions = IllegalStateException.class)
+    public void testIllegalStateExceptionWhenSystemPropertyIsBlank() {
 
         System.setProperty(CONFIG_DIR_PROPERTY, "   ");
 
@@ -109,25 +88,7 @@ public class AWSVaultConstantsTest {
             carbonUtils.when(CarbonUtils::getCarbonConfigDirPath)
                        .thenThrow(new NoClassDefFoundError("org/wso2/carbon/utils/CarbonUtils"));
 
-            assertIllegalStateException();
+            CarbonConfigResolver.getCarbonConfigDirPath();
         }
-    }
-
-    private void assertIllegalStateException() throws Exception {
-
-        try {
-            invokeCarbonConfigDirPath();
-            fail("Expected IllegalStateException to be thrown");
-        } catch (InvocationTargetException e) {
-            assertTrue(e.getCause() instanceof IllegalStateException,
-                    "Expected IllegalStateException but was: " + e.getCause().getClass().getName());
-        }
-    }
-
-    private String invokeCarbonConfigDirPath() throws Exception {
-
-        Method method = AWSVaultConstants.class.getDeclaredMethod("getCarbonConfigDirPath");
-        method.setAccessible(true);
-        return (String) method.invoke(null);
     }
 }
