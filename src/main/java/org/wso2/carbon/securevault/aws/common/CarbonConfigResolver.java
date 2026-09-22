@@ -25,6 +25,17 @@ import org.wso2.carbon.utils.CarbonUtils;
  */
 public class CarbonConfigResolver {
 
+    /**
+     * System property that explicitly overrides the Carbon config directory for this extension.
+     */
+    private static final String CONFIG_DIR_PROPERTY = "carbon.config.dir";
+
+    /**
+     * Standard Carbon system property carrying the config directory. This is the property that
+     * CarbonUtils itself reads, and it is set by Carbon based products including Micro Integrator.
+     */
+    private static final String CONFIG_DIR_PATH_PROPERTY = "carbon.config.dir.path";
+
     private CarbonConfigResolver() {
 
     }
@@ -32,26 +43,48 @@ public class CarbonConfigResolver {
     /**
      * Returns the Carbon config directory path. Uses CarbonUtils.getCarbonConfigDirPath() when the
      * carbon.utils bundle is available (optional OSGi dependency). Falls back to the "carbon.config.dir"
-     * system property for environments like Micro Integrator that run without Carbon Kernel.
+     * and then the "carbon.config.dir.path" system properties for environments like Micro Integrator
+     * that run without Carbon Kernel.
      *
      * @return the Carbon config directory path.
-     * @throws IllegalStateException if neither CarbonUtils nor the system property is available.
+     * @throws IllegalStateException if neither CarbonUtils nor the system properties are available.
      */
     public static String getCarbonConfigDirPath() {
 
         try {
             return CarbonUtils.getCarbonConfigDirPath();
         } catch (NoClassDefFoundError e) {
-            String configDir = System.getProperty("carbon.config.dir");
+            String configDir = getSystemProperty(CONFIG_DIR_PROPERTY);
+            if (configDir == null) {
+                configDir = getSystemProperty(CONFIG_DIR_PATH_PROPERTY);
+            }
             if (configDir != null) {
-                configDir = configDir.trim();
-                if (!configDir.isEmpty()) {
-                    return configDir;
-                }
+                return configDir;
             }
             throw new IllegalStateException(
                     "Cannot resolve Carbon config directory: carbon.utils bundle is not available " +
-                    "and 'carbon.config.dir' system property is not set.", e);
+                    "and neither the '" + CONFIG_DIR_PROPERTY + "' nor the '" + CONFIG_DIR_PATH_PROPERTY +
+                    "' system property is set.", e);
         }
+    }
+
+    /**
+     * Reads a system property and returns its trimmed value, or null if it is not set or is blank.
+     * The value is used to build a filesystem path, so a blank value is rejected here to avoid
+     * resolving to an unintended relative path.
+     *
+     * @param name name of the system property.
+     * @return the trimmed property value, or null if it is not set or blank.
+     */
+    private static String getSystemProperty(String name) {
+
+        String value = System.getProperty(name);
+        if (value != null) {
+            value = value.trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        return null;
     }
 }
