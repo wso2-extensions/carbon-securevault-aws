@@ -76,6 +76,31 @@ the default credential provider chain will be used. This is further explained in
 except the root password) has to be encrypted beforehand using the cipher tool. Please note that if you are using the
 novel method for configuration, this property has to be set to false. Encryption is only supported for legacy method.
 
+#### Optional: Secret name prefix
+
+Optionally, a prefix can be set that is prepended to every secret name before it is looked up in the AWS Secrets
+Manager. This allows the same aliases to be used across multiple environments, while each environment resolves them
+to its own secrets. For example, with the prefix `dev/`, the alias `admin-password` is retrieved from the secret
+named `dev/admin-password`.
+
+Novel method:
+
+```
+secretProviders.vault.repositories.aws.properties.secretNamePrefix=dev/
+```
+
+Legacy method:
+
+```
+secretRepositories.vault.properties.secretNamePrefix=dev/
+```
+
+The prefix is used exactly as given (surrounding whitespace is trimmed), so include the separator (eg: `/`) in the
+value. If a secret version is specified in the alias, the prefix is applied to the secret name only. The prefix is not
+applied to the root passwords (`keystore.identity.store.alias` and `keystore.identity.key.alias`), as their aliases
+are already configured per environment in the `secret-conf.properties` file. If this property is not set, the secret
+names are used as they are.
+
 ### Step 3: Setting up AWS Credentials for authentication
 
 The credential provider type for authentication into AWS can be set by the `<Credential_Provider_Type>` as mentioned

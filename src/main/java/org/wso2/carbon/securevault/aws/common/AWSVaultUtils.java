@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, WSO2 LLC (http://www.wso2.com).
+ * Copyright (c) 2022-2026, WSO2 LLC (http://www.wso2.com).
  *
  * WSO2 LLC licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -51,16 +51,30 @@ public class AWSVaultUtils {
      */
     public static String getProperty(Properties properties, String propertyName) {
 
-        if (properties == null) {
-            throw new IllegalArgumentException("Properties cannot be null.");
-        }
-        String propKey = getPropKey(properties, propertyName);
-        String property = properties.getProperty(propKey);
+        String property = getOptionalProperty(properties, propertyName);
         if (StringUtils.isEmpty(property)) {
             log.warn("Property " + propertyName.replaceAll(CRLF_SANITATION_REGEX, "") +
                     " has not been set in secret-conf.properties file.");
         }
         return property;
+    }
+
+    /**
+     * Util method to get an optional property based on legacy or novel method used for defining the property
+     * in the configurations file. Unlike {@link #getProperty(Properties, String)}, no warning is logged if the
+     * property has not been set.
+     *
+     * @param properties   Configuration properties.
+     * @param propertyName Name of the required property.
+     * @return Property value.
+     */
+    public static String getOptionalProperty(Properties properties, String propertyName) {
+
+        if (properties == null) {
+            throw new IllegalArgumentException("Properties cannot be null.");
+        }
+        String propKey = getPropKey(properties, propertyName);
+        return properties.getProperty(propKey);
     }
 
     /**

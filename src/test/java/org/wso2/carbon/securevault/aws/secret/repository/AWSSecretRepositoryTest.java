@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.securevault.aws.secret.repository;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -55,6 +56,7 @@ import static org.testng.Assert.assertNull;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ALGORITHM;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ENCRYPTION_ENABLED;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ROOT_PASSWORDS;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.SECRET_NAME_PREFIX;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.VERSION_DELIMITER;
 
 /**
@@ -418,5 +420,112 @@ public class AWSSecretRepositoryTest {
             repo.init(properties, "testId");
             assertEquals(repo.getEncryptedData(null), "");  // null triggers exception
         }
+    }
+
+    // Helper method to retrieve a secret with the given prefix configured and capture the request sent to AWS.
+    private GetSecretValueRequest getSecretWithPrefix(String prefix, String id, String alias) {
+
+        Properties properties = new Properties();
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class)) {
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties)).thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED)).thenReturn("false");
+            mockedUtils.when(() -> AWSVaultUtils.getOptionalProperty(properties, SECRET_NAME_PREFIX))
+                    .thenReturn(prefix);
+            setupSecretResponse(SECRET_VALUE);
+            awsSecretRepository.init(properties, id);
+            assertEquals(awsSecretRepository.getSecret(alias), SECRET_VALUE);
+        }
+        ArgumentCaptor<GetSecretValueRequest> captor = ArgumentCaptor.forClass(GetSecretValueRequest.class);
+        verify(secretsManagerClient, times(1)).getSecretValue(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test(description = "Test getSecret applies the secret name prefix", dataProvider = "secretNamePrefixProvider")
+    public void testGetSecretWithSecretNamePrefix(String prefix, String expectedSecretId) {
+
+        GetSecretValueRequest request = getSecretWithPrefix(prefix, "testId", SECRET_NAME);
+        assertEquals(request.secretId(), expectedSecretId);
+        assertNull(request.versionId());
+    }
+
+    @DataProvider(name = "secretNamePrefixProvider")
+    public Object[][] secretNamePrefixProvider() {
+        return new Object[][] {
+            {"dev/", "dev/" + SECRET_NAME},
+            {"  prod/  ", "prod/" + SECRET_NAME},  // Surrounding whitespace is trimmed
+            {"", SECRET_NAME},
+            {"   ", SECRET_NAME},
+            {null, SECRET_NAME}  // Property not set
+        };
+    }
+
+    @Test(description = "Test getSecret applies the secret name prefix only to the name when a version is given")
+    public void testGetSecretWithSecretNamePrefixAndVersion() {
+
+        GetSecretValueRequest request = getSecretWithPrefix("dev/", "testId",
+                SECRET_NAME + VERSION_DELIMITER + SECRET_VERSION);
+        assertEquals(request.secretId(), "dev/" + SECRET_NAME);
+        assertEquals(request.versionId(), SECRET_VERSION);
+    }
+
+    @Test(description = "Test the secret name prefix is not applied to root password retrieval")
+    public void testSecretNamePrefixNotAppliedForRootPasswords() {
+
+        GetSecretValueRequest request = getSecretWithPrefix("dev/", ROOT_PASSWORDS, SECRET_NAME);
+        assertEquals(request.secretId(), SECRET_NAME);
+    }
+
+    @Test(description = "Test an alias cannot reach a secret outside the configured secret name prefix",
+            dataProvider = "prefixEscapeAliasProvider")
+    public void testSecretNamePrefixCannotBeEscaped(String alias, String expectedSecretId) {
+
+        GetSecretValueRequest request = getSecretWithPrefix("dev/", "testId", alias);
+        assertEquals(request.secretId(), expectedSecretId);
+    }
+
+    @DataProvider(name = "prefixEscapeAliasProvider")
+    public Object[][] prefixEscapeAliasProvider() {
+        return new Object[][] {
+            {"../prod/" + SECRET_NAME, "dev/../prod/" + SECRET_NAME},  // No path normalization
+            {"/prod/" + SECRET_NAME, "dev//prod/" + SECRET_NAME},
+            {"prod/" + SECRET_NAME, "dev/prod/" + SECRET_NAME},
+            // A full ARN is prefixed too, so it no longer identifies a secret outside the prefix.
+            {"arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/" + SECRET_NAME,
+                    "dev/arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/" + SECRET_NAME},
+            {"*", "dev/*"}
+        };
+    }
+
+    @Test(description = "Test the secret name prefix is applied to getEncryptedData as well")
+    public void testGetEncryptedDataWithSecretNamePrefix() {
+
+        Properties properties = new Properties();
+        AWSSecretRepository repo = new AWSSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
+        try (MockedStatic<AWSSecretManagerClient> mockedClient = mockStatic(AWSSecretManagerClient.class);
+             MockedStatic<AWSVaultUtils> mockedUtils = mockStatic(AWSVaultUtils.class);
+             MockedStatic<CipherFactory> mockedCipher = mockStatic(CipherFactory.class)) {
+            mockedClient.when(() -> AWSSecretManagerClient.getInstance(properties)).thenReturn(secretsManagerClient);
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ENCRYPTION_ENABLED)).thenReturn("true");
+            mockedUtils.when(() -> AWSVaultUtils.getProperty(properties, ALGORITHM)).thenReturn("RSA");
+            mockedUtils.when(() -> AWSVaultUtils.getOptionalProperty(properties, SECRET_NAME_PREFIX))
+                    .thenReturn("dev/");
+            mockedCipher.when(() -> CipherFactory.createCipher(any(CipherInformation.class),
+                    any(IdentityKeyStoreWrapper.class))).thenReturn(baseCipher);
+            setupSecretResponse("encrypted");
+            repo.init(properties, "testId");
+            assertEquals(repo.getEncryptedData(SECRET_NAME), "encrypted");
+        }
+        ArgumentCaptor<GetSecretValueRequest> captor = ArgumentCaptor.forClass(GetSecretValueRequest.class);
+        verify(secretsManagerClient, times(1)).getSecretValue(captor.capture());
+        assertEquals(captor.getValue().secretId(), "dev/" + SECRET_NAME);
+    }
+
+    @Test(description = "Test a secret name prefix containing line breaks does not break secret retrieval flow")
+    public void testSecretNamePrefixWithLineBreaks() {
+
+        // Line breaks are stripped from log messages; the prefix itself is passed to AWS unchanged.
+        GetSecretValueRequest request = getSecretWithPrefix("dev/\r\nFORGED", "testId", SECRET_NAME);
+        assertEquals(request.secretId(), "dev/\r\nFORGED" + SECRET_NAME);
     }
 }

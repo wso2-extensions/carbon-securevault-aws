@@ -216,4 +216,33 @@ public class AWSVaultUtilsTest {
 
         assertEquals(AWSVaultUtils.getProperty(properties, "test"), TEST_PROPERTY_VALUE);
     }
+
+    @Test(description = "Test getOptionalProperty with different configuration formats",
+          dataProvider = "configFormats")
+    public void testGetOptionalPropertyWithConfigFormats(String configType, String prefix, String description) {
+
+        Properties properties = new Properties();
+        properties.setProperty(configType, "vault");
+        properties.setProperty(prefix + "secretNamePrefix", "dev/");
+
+        assertEquals(AWSVaultUtils.getOptionalProperty(properties, "secretNamePrefix"), "dev/",
+                "Should retrieve optional property with " + description + " format");
+    }
+
+    @Test(description = "Test getOptionalProperty when property does not exist")
+    public void testGetOptionalPropertyWhenPropertyNotFound() {
+
+        Properties properties = new Properties();
+        properties.setProperty(SECRET_REPOSITORIES, "vault");
+
+        assertNull(AWSVaultUtils.getOptionalProperty(properties, "secretNamePrefix"));
+    }
+
+    @Test(description = "Test getOptionalProperty with null properties throws IllegalArgumentException",
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "Properties cannot be null.")
+    public void testGetOptionalPropertyWithNullProperties() {
+
+        AWSVaultUtils.getOptionalProperty(null, "secretNamePrefix");
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, WSO2 LLC (http://www.wso2.com).
+ * Copyright (c) 2022-2026, WSO2 LLC (http://www.wso2.com).
  *
  * WSO2 LLC licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -47,6 +47,7 @@ import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.CRLF_SANI
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.DEFAULT_ALGORITHM;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ENCRYPTION_ENABLED;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.ROOT_PASSWORDS;
+import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.SECRET_NAME_PREFIX;
 import static org.wso2.carbon.securevault.aws.common.AWSVaultConstants.VERSION_DELIMITER;
 
 /**
@@ -64,6 +65,8 @@ public class AWSSecretRepository implements SecretRepository {
     private TrustKeyStoreWrapper trustKeyStoreWrapper;
     private DecryptionProvider baseCipher;
     private boolean encryptionEnabled = false;
+    // Prefix prepended to every secret name before it is looked up in AWS Secrets Manager.
+    private String secretNamePrefix = "";
 
     /**
      * Creates an AWSSecretRepository object. This constructor is invoked when the legacy configuration has been used.
@@ -100,6 +103,7 @@ public class AWSSecretRepository implements SecretRepository {
         } else {
             log.info("Initializing AWS Secure Vault for secret retrieval.");
             setEncryptionEnabled(properties);
+            setSecretNamePrefix(properties);
         }
         secretsClient = AWSSecretManagerClient.getInstance(properties);
     }
@@ -134,7 +138,7 @@ public class AWSSecretRepository implements SecretRepository {
             }
         } catch (ResourceNotFoundException e) {
             log.error("Failed to retrieve secret " + alias.replaceAll(CRLF_SANITATION_REGEX, "")
-                    + " from AWS Secrets Manager. Returning empty string.", e);
+                    + getSecretNamePrefixLogSuffix() + " from AWS Secrets Manager. Returning empty string.", e);
         } catch (AWSVaultException | SdkClientException e) {
             log.error(e.getMessage().replaceAll(CRLF_SANITATION_REGEX, ""), e);
         }
@@ -170,20 +174,25 @@ public class AWSSecretRepository implements SecretRepository {
     private String retrieveSecretFromVault(String alias) throws AWSVaultException {
 
         SecretReference secretReference = parseSecretReference(alias);
+        String secretName = secretNamePrefix + secretReference.name;
+        if (log.isDebugEnabled() && StringUtils.isNotEmpty(secretNamePrefix)) {
+            log.debug("Secret name prefix applied. Resolved secret name: "
+                    + secretName.replaceAll(CRLF_SANITATION_REGEX, ""));
+        }
 
         GetSecretValueRequest valueRequest = GetSecretValueRequest.builder()
-                .secretId(secretReference.name)
+                .secretId(secretName)
                 .versionId(secretReference.version)
                 .build();
         GetSecretValueResponse valueResponse = secretsClient.getSecretValue(valueRequest);
         String secret = valueResponse.secretString();
 
         if (StringUtils.isEmpty(secret)) {
-            log.warn("Secret " + secretReference.name.replaceAll(CRLF_SANITATION_REGEX, "")
+            log.warn("Secret " + secretName.replaceAll(CRLF_SANITATION_REGEX, "")
                     + " is null or empty. Returning empty string");
         }
         if (log.isDebugEnabled()) {
-            log.debug("Secret " + secretReference.name.replaceAll(CRLF_SANITATION_REGEX, "") +
+            log.debug("Secret " + secretName.replaceAll(CRLF_SANITATION_REGEX, "") +
                     " is retrieved from Vault.");
         }
 
@@ -277,6 +286,38 @@ public class AWSSecretRepository implements SecretRepository {
                 log.debug("Encryption is disabled in AWS Secure Vault.");
             }
         }
+    }
+
+    /**
+     * Method to read the optional secret name prefix from the configurations. If set, the prefix is prepended to
+     * every secret name before it is looked up in AWS Secrets Manager, so that the same alias can resolve to
+     * different secrets in different environments (eg: "dev/", "prod/"). The prefix is not applied to the
+     * root passwords, as their aliases are already configured per environment in secret-conf.properties.
+     *
+     * @param properties Configuration properties.
+     */
+    private void setSecretNamePrefix(Properties properties) {
+
+        String prefix = StringUtils.trim(AWSVaultUtils.getOptionalProperty(properties, SECRET_NAME_PREFIX));
+        if (StringUtils.isEmpty(prefix)) {
+            return;
+        }
+        log.info("Secret name prefix " + prefix.replaceAll(CRLF_SANITATION_REGEX, "")
+                + " will be prepended to the secret names retrieved from AWS Secrets Manager.");
+        secretNamePrefix = prefix;
+    }
+
+    /**
+     * Util method to build the log message suffix that indicates the secret name prefix, if one is set.
+     *
+     * @return Log message suffix.
+     */
+    private String getSecretNamePrefixLogSuffix() {
+
+        if (StringUtils.isEmpty(secretNamePrefix)) {
+            return "";
+        }
+        return " (secret name prefix: " + secretNamePrefix.replaceAll(CRLF_SANITATION_REGEX, "") + ")";
     }
 
     /**
